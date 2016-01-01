@@ -1,0 +1,8 @@
+target
+.idea
+.idea_modules
+.DS_Store
+.classpath_nb
+.classpath
+.project
+.settings/
