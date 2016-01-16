@@ -5,6 +5,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
 
+import org.gwgs.http.server.lowlever.StartingStopping
 import org.gwgs.stream._
 
 object Main {
@@ -59,7 +60,7 @@ object Main {
 //    StreamIO.tcpServer 
 //    StreamIO.replClient
 //    StreamIO.replClient2
-    StreamIO.fileIO
+//    StreamIO.fileIO
     
 //    TestStream.testBuildIns
 //    TestStream.testViaAkkaTestkit1
@@ -73,12 +74,13 @@ object Main {
     
     
 ////////////////// Akka HTTP ///////////////////////////////////////////////////
-    
+//    StartingStopping.start
+    StartingStopping.startWithHandler
     
 ////////////////////////////////////////////////////////////////////////////////
 
     //added for CustomProcessing.pushPull, and some other long running ones.
-    Thread.sleep(2000)
+    Thread.sleep(2000000)
     system.shutdown
     
     //always return Unit last, to prevent something from accidentally returned
