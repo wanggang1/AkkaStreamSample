@@ -6,18 +6,24 @@ version := "1.0"
 
 scalaVersion := "2.11.7"
 
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-http-core-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-http-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-http-spray-json-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-stream-testkit-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-http-testkit-experimental" % "2.0.2",
-  "com.typesafe.akka" %% "akka-testkit" % "2.3.12",
-  "org.scalatest" %% "scalatest" % "2.1.6" % "compile, test",
-  "junit" % "junit" % "4.11" % "test",
-  "com.novocode" % "junit-interface" % "0.10" % "test"
-)
+libraryDependencies ++= {
+    val akkaVersion = "2.3.14"
+    val akkaHttpVersion = "2.0.2"
+    val akkaStreamVersion = "2.0.2"
+
+    Seq(
+      "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
+      "com.typesafe.akka" %% "akka-http-core-experimental" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-stream-testkit-experimental" % akkaStreamVersion,
+      "com.typesafe.akka" %% "akka-http-testkit-experimental" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+      "org.scalatest" %% "scalatest" % "2.1.6" % "compile, test",
+      "junit" % "junit" % "4.11" % "test",
+      "com.novocode" % "junit-interface" % "0.10" % "test"
+    )
+}
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
 

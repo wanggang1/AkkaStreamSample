@@ -141,6 +141,7 @@ object ExternalIntegration {
     import TweetDB._
     import akka.pattern.ask
     
+    import scala.language.postfixOps
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3.seconds)
     

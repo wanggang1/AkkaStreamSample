@@ -5,6 +5,8 @@ import akka.stream.{ ActorMaterializer, ClosedShape }
 import akka.stream.scaladsl._
 
 import scala.concurrent.{ Await, ExecutionContext, Future , Promise}
+
+import scala.language.postfixOps
 import scala.concurrent.duration._
 
 object Basics {

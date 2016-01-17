@@ -6,6 +6,8 @@ import akka.stream.scaladsl._
 import scala.concurrent.{ Await, Future }
 import akka.util.ByteString
 import java.nio.ByteOrder
+
+import scala.language.postfixOps
 import scala.concurrent.duration._
 
 

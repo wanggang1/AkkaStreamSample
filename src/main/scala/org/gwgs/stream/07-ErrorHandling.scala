@@ -6,6 +6,7 @@ import akka.stream.Supervision
 import akka.stream.scaladsl._
 
 import scala.concurrent.{ Await, Future }
+import scala.language.postfixOps
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 

@@ -4,6 +4,8 @@ import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl._
 import scala.concurrent.{ Await, Future }
+
+import scala.language.postfixOps
 import scala.concurrent.duration._
 
 object Modularity {

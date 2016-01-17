@@ -9,6 +9,8 @@ import akka.util.ByteString
 import java.io.File
 import scala.concurrent.Await
 import scala.concurrent.Future
+
+import scala.language.postfixOps
 import scala.concurrent.duration._
 
 
