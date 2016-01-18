@@ -80,7 +80,7 @@ object HttpServerLowLevelAPI {
       }) .run()
 
     bindingFuture onFailure {
-      case ex: Exception => println("Failed to bind to {}:{}!", host, port)
+      case ex: Exception => println(s"Failed to bind to $host:$port!")
     }
   }
   
