@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 
 import scala.concurrent.Future
 
-object HttpServeHighLevelAPI {
+object HttpServeHighLevelOverview {
 
   def simpleMain(implicit system: ActorSystem, materializer: ActorMaterializer): Unit = {
     implicit val ec = system.dispatcher
