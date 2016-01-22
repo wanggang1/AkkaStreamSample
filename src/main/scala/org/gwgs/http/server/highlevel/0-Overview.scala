@@ -1,4 +1,4 @@
-package org.gwgs.http.server.highlever
+package org.gwgs.http.server.highlevel
 
 import akka.actor.{ Actor, ActorSystem, Props }
 import akka.http.scaladsl.Http

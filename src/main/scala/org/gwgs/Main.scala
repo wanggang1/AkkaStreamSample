@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
 
-import org.gwgs.http.server.highlever.Overview
+import org.gwgs.http.server.highlevel.Overview
 import org.gwgs.http.server.lowlever.HttpServerLowLevelAPI
 import org.gwgs.stream._
 
