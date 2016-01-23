@@ -9,7 +9,7 @@ import akka.stream.scaladsl._
 import scala.concurrent.Future
 
 /**
-  * for full-control over when HTTP connections are opened/closed and how requests are scheduled across them
+  * For full-control over when HTTP connections are opened/closed and how requests are scheduled across them.
   */
 object ConnectionLevelAPI {
 
