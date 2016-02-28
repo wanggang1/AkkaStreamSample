@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.{ Actor, ActorSystem, Props }
 import akka.stream.{ ActorAttributes, ActorMaterializer , ActorMaterializerSettings}
 import akka.stream.scaladsl._
@@ -56,13 +57,13 @@ object ExternalIntegration {
   def externalOrdered(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import QuickStart.{ akkaTag, tweets }
 
-    val authors: Source[Author, Unit] = tweets.filter(_.hashtags.contains(akkaTag)).map(_.author)
+    val authors: Source[Author, NotUsed] = tweets.filter(_.hashtags.contains(akkaTag)).map(_.author)
 
-    val emailAddresses: Source[String, Unit] =
+    val emailAddresses: Source[String, NotUsed] =
       authors.mapAsync(4)(author => lookupEmail(author.handle))
         .collect { case Some(emailAddress) => emailAddress }
     
-    val sendEmails: RunnableGraph[Unit] =
+    val sendEmails: RunnableGraph[NotUsed] =
       emailAddresses
         .mapAsync(4)(address => {
           send(Email(to = address, title = "Akka", body = "I like your tweet"))
@@ -79,14 +80,14 @@ object ExternalIntegration {
   def externalUnOrdered(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import QuickStart.{ akkaTag, tweets }
 
-    val authors: Source[Author, Unit] = tweets.filter(_.hashtags.contains(akkaTag)).map(_.author)
+    val authors: Source[Author, NotUsed] = tweets.filter(_.hashtags.contains(akkaTag)).map(_.author)
 
-    val emailAddresses: Source[String, Unit] =
+    val emailAddresses: Source[String, NotUsed] =
       authors
         .mapAsyncUnordered(4)(author => lookupEmail(author.handle))
         .collect { case Some(emailAddress) => emailAddress }
 
-    val sendEmails: RunnableGraph[Unit] =
+    val sendEmails: RunnableGraph[NotUsed] =
       emailAddresses
         .mapAsyncUnordered(4)(address => {
           send( Email(to = address, title = "Akka", body = "I like your tweet") )
@@ -105,7 +106,7 @@ object ExternalIntegration {
 
     val blockingExecutionContext = system.dispatchers.lookup("stream.my-blocking-dispatcher")
  
-    val sendTextMessages: RunnableGraph[Unit] =
+    val sendTextMessages: RunnableGraph[NotUsed] =
       Source(1 to 10)
         .mapAsync(4)(phoneNo => {
           Future {
@@ -127,7 +128,7 @@ object ExternalIntegration {
         sendSMS(TextMessage(to = phoneNo, body = "I like your text with map"))
       }.withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher"))
           
-    val sendTextMessages2: RunnableGraph[Unit] = Source(1 to 10).via(send).to(Sink.ignore)
+    val sendTextMessages2: RunnableGraph[NotUsed] = Source(1 to 10).via(send).to(Sink.ignore)
 
     sendTextMessages2.run()
   }
@@ -145,11 +146,11 @@ object ExternalIntegration {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3.seconds)
     
-    val akkaTweets: Source[Tweet, Unit] = tweets.filter(_.hashtags.contains(akkaTag))
+    val akkaTweets: Source[Tweet, NotUsed] = tweets.filter(_.hashtags.contains(akkaTag))
  
     val database = system.actorOf(TweetDB.props)
     
-    val saveTweets: RunnableGraph[Unit] =
+    val saveTweets: RunnableGraph[NotUsed] =
       akkaTweets
         .mapAsync(4)(tweet => database ? Save(tweet))
         .to(Sink.ignore)

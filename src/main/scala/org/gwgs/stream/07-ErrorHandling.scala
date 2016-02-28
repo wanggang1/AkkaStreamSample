@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.{ ActorAttributes, ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.Supervision
@@ -105,11 +106,11 @@ object ErrorHandling {
     import ActorAttributes.supervisionStrategy
     import Supervision.resumingDecider  //always resume no matter what exception
     
-    val authors: Source[Author, Unit] = tweets
+    val authors: Source[Author, NotUsed] = tweets
       .filter(_.hashtags.contains(akkaTag))
       .map(_.author)
       
-    val emailAddresses: Source[String, Unit] =
+    val emailAddresses: Source[String, NotUsed] =
       authors.via(
         Flow[Author].mapAsync(4)(author => lookupEmail(author.handle))
           .withAttributes(supervisionStrategy(resumingDecider)))

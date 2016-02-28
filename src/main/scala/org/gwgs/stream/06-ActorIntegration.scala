@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.{ ActorRef, Props , ActorSystem, Actor }
 import akka.stream.{ ActorMaterializer, OverflowStrategy }
 import akka.routing.{ ActorRefRoutee, RoundRobinRoutingLogic, Router }
@@ -24,7 +25,7 @@ object ActorIntegration {
   /*
    * Sends the elements of the stream to the given ActorRef
    */
-  val sink: Sink[MessageForActor, Unit] = Sink.actorRef(actorRef, "Done for onComplete")
+  val sink: Sink[MessageForActor, NotUsed] = Sink.actorRef(actorRef, "Done for onComplete")
   
   /*
    * Unlike Source.actorRef, this source created by Source.actorPublisher is stream

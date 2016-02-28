@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source }
@@ -9,12 +10,12 @@ object QuickStart {
 
   val akkaTag = Hashtag("#akka")
   
-  val tweets: Source[Tweet, Unit] = Source(1 to 10).map(i => Tweet(Author(s"$i $i@gmail.com"), 0L, s"Tweet $i #akka #scala"))
+  val tweets: Source[Tweet, NotUsed] = Source(1 to 10).map(i => Tweet(Author(s"$i $i@gmail.com"), 0L, s"Tweet $i #akka #scala"))
   
   /////////////////// Materialized values /////////////////////////////
   def run(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import ExecutionContext.Implicits.global
-    val count: Flow[Tweet, Int, Unit] = Flow[Tweet].map(_ => 1)
+    val count: Flow[Tweet, Int, NotUsed] = Flow[Tweet].map(_ => 1)
  
     val sumSink: Sink[Int, Future[Int]] = Sink.fold[Int, Int](0)(_ + _)
 

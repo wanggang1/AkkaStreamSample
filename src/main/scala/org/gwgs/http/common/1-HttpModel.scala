@@ -77,10 +77,14 @@ object HttpModel {
     import headers._
 
     object ApiTokenHeader extends ModeledCustomHeaderCompanion[ApiTokenHeader] {
+      def renderInRequests = false
+      def renderInResponses = false
       override val name = "apiKey"
       override def parse(value: String) = Try(new ApiTokenHeader(value))
     }
     final class ApiTokenHeader(token: String) extends ModeledCustomHeader[ApiTokenHeader] {
+      def renderInRequests = false
+      def renderInResponses = false
       override val companion = ApiTokenHeader
       override def value: String = token
     }

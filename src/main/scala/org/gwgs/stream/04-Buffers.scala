@@ -35,7 +35,7 @@ object Buffers {
       Source.tick(initialDelay = 3.second, interval = 3.second, Tick()) ~> zipper.in0
 
       Source.tick(initialDelay = 1.second, interval = 1.second, "message!")
-        .conflate(seed = (_) => 1)((count, _) => count + 1) ~> zipper.in1
+        .conflateWithSeed(seed = (_) => 1)((count, _) => count + 1) ~> zipper.in1
         
       zipper.out ~> Sink.foreach(println)
 
@@ -101,7 +101,7 @@ object Buffers {
    */
   def rateTransformation(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     val statsFlow = Flow[Double]
-      .conflate(Seq(_))(_ :+ _)
+      .conflateWithSeed(Seq(_))(_ :+ _)
       .map { s =>
         val μ = s.sum / s.size
         val se = s.map(x => Math.pow(x - μ, 2))
@@ -125,12 +125,9 @@ object Buffers {
    * here is a flow that tracks and reports a drift between fast consumer and slow producer.
    */
   def expand(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    val lastFlow = Flow[Double].expand(identity)(s => (s, s))
+    val lastFlow = Flow[Double].expand(Iterator.continually(_))
     
-    val driftFlow = Flow[Double]
-      .expand((_, 0)) {
-        case (lastElement, drift) => ((lastElement, drift), (lastElement, drift + 1))
-      }
+    val driftFlow = Flow[Double].expand(i => Iterator.from(0).map(i -> _))
   }
 
 }

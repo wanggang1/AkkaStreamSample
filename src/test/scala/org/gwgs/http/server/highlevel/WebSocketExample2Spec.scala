@@ -1,6 +1,6 @@
 package org.gwgs.http.server.highlevel
 
-import akka.http.scaladsl.model.ws.{ BinaryMessage, TextMessage, Message, UpgradeToWebsocket }
+import akka.http.scaladsl.model.ws.{ BinaryMessage, TextMessage, Message }
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.testkit.{WSProbe, ScalatestRouteTest}
 import akka.stream.scaladsl.{Sink, Source, Flow}
@@ -28,7 +28,7 @@ class WebSocketExample2Spec extends WordSpec with Matchers with ScalatestRouteTe
 
       val websocketRoute =
         path("greeter") {
-          handleWebsocketMessages(greeter)
+          handleWebSocketMessages(greeter)
         }
 
       // create a testing probe representing the client-side
@@ -37,7 +37,7 @@ class WebSocketExample2Spec extends WordSpec with Matchers with ScalatestRouteTe
       // WS creates a Websocket request for testing
       WS("/greeter", wsClient.flow) ~> websocketRoute ~> check {
           // check response for WS Upgrade headers
-          isWebsocketUpgrade shouldEqual true
+          isWebSocketUpgrade shouldEqual true
 
           // manually run a WS conversation
           wsClient.sendMessage("Peter")

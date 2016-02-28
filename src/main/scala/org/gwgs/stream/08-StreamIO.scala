@@ -1,7 +1,7 @@
 package org.gwgs
 
 import akka.actor.ActorSystem
-import akka.stream.{ ActorMaterializer, FlowShape , ActorAttributes}
+import akka.stream.{ ActorMaterializer, FlowShape , ActorAttributes, IOResult}
 import akka.stream.scaladsl._
 
 import akka.util.ByteString
@@ -26,7 +26,7 @@ object StreamIO {
    * $ echo -n "Hello World" | netcat 127.0.0.1 8888
    */
   def tcpServer(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import akka.stream.io.Framing
+    import akka.stream.scaladsl.Framing
     import Tcp.{ IncomingConnection, ServerBinding }
  
     val connections: Source[IncomingConnection, Future[ServerBinding]] =
@@ -52,7 +52,7 @@ object StreamIO {
    * Client interacts with server using Akka Streams over TCP
    */
   def replClient(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import akka.stream.io.Framing
+    import akka.stream.scaladsl.Framing
     import akka.stream.stage.{ Context, PushStage, SyncDirective }
 
     val connection = Tcp().outgoingConnection("127.0.0.1", 8888)
@@ -83,7 +83,7 @@ object StreamIO {
    * Client interacts with server using Akka Streams over TCP
    */
   def replClient2(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import akka.stream.io.Framing
+    import akka.stream.scaladsl.Framing
     import akka.stream.stage.{ Context, PushStage, SyncDirective }
 
     val connections = Tcp().bind("127.0.0.1", 8888)
@@ -137,10 +137,10 @@ object StreamIO {
    * the new NIO APIs (i.e. AsynchronousFileChannel).
    */
   def fileIO(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import akka.stream.io._
+    import akka.stream.scaladsl._
     val file = new File("external/sample.csv")
 
-    val fileLength: Future[Long] = FileIO.fromFile(file)
+    val fileLength: Future[IOResult] = FileIO.fromFile(file)
       .withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher")) //to configure globally, changing the akka.stream.blocking-io-dispatcher
       .to(Sink.ignore)
       .run()

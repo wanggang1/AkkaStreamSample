@@ -4,7 +4,8 @@ import akka.actor.{Actor, ActorLogging, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{StatusCodes, HttpResponse, HttpRequest}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ImplicitMaterializer, Sink, Source, Flow}
+import akka.stream.ActorMaterializerSettings
+import akka.stream.scaladsl.{Sink, Source, Flow}
 import akka.util.ByteString
 
 import scala.concurrent.Future
@@ -57,12 +58,13 @@ object RequestLevelAPI {
   * Using the Future-Based API in Actors
   */
 class HttpConsumerActor extends Actor
-  with ImplicitMaterializer
   with ActorLogging {
 
   import akka.pattern.pipe
   import context.dispatcher
 
+  final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+  
   val http = Http(context.system)
 
   override def preStart() = {

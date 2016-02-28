@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.{ ActorRef, ActorSystem }
 import akka.stream.{ ActorMaterializer, ClosedShape , UniformFanInShape, SourceShape, FlowShape, Inlet, Outlet, Shape, FanInShape , Graph, BidiShape}
 import akka.stream.scaladsl._
@@ -16,7 +17,7 @@ object Graphs {
   def graph(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     
     //No argument with FlowGraph.create()
-    val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
       val in = Source(1 to 10)
       val out = Sink.foreach[Int]{ println(_) } //Sink.ignore
 
@@ -146,7 +147,7 @@ object Graphs {
     /*
      * run flow pairUpWithToString
      */
-    val firstPair: (Unit, Future[(Int, String)]) = pairUpWithToString.runWith(Source(List(1)), Sink.head)
+    val firstPair: (NotUsed, Future[(Int, String)]) = pairUpWithToString.runWith(Source(List(1)), Sink.head)
     val result = Await.result(firstPair._2, 300.millis)
     println(s"Pair (Int, String) : $result")
     
@@ -284,7 +285,7 @@ object ArbitraryShape {
   object PriorityWorkerPool {
     def apply[In, Out](
         worker: Flow[In, Out, Any],
-        workerCount: Int): Graph[PriorityWorkerPoolShape[In, Out], Unit] = {
+        workerCount: Int): Graph[PriorityWorkerPoolShape[In, Out], NotUsed] = {
 
       GraphDSL.create() { implicit b ⇒
         import GraphDSL.Implicits._

@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.{ ActorMaterializer, Attributes, Outlet, SourceShape, Graph}
 import akka.stream.scaladsl.Sink
@@ -17,10 +18,10 @@ object CustomProcessing {
    */
   def graphStage(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     // A GraphStage is a proper Graph, just like what FlowGraph.create would return
-    val sourceGraph: Graph[SourceShape[Int], Unit] = new NumbersSource
+    val sourceGraph: Graph[SourceShape[Int], NotUsed] = new NumbersSource
 
     // Create a Source from the Graph to access the DSL
-    val mySource: Source[Int, Unit] = Source.fromGraph(new NumbersSource)
+    val mySource: Source[Int, NotUsed] = Source.fromGraph(new NumbersSource)
 
     // Returns 55
     val sum1: Future[Int] = mySource.take(10).runFold(0)(_ + _)

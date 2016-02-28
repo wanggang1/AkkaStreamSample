@@ -1,5 +1,6 @@
 package org.gwgs
 
+import akka.NotUsed
 import akka.actor.{ ActorSystem, Cancellable }
 import akka.stream.{ ActorMaterializer, ClosedShape }
 import akka.stream.scaladsl._
@@ -49,22 +50,22 @@ object Basics {
     //Do not not need materialized because sink is side-effect only and the return type is Unit???
 
     // Explicitly creating and wiring up a Source, Sink and Flow
-    val pipeline1: RunnableGraph[Unit] =
+    val pipeline1: RunnableGraph[NotUsed] =
       Source(1 to 6).via(Flow[Int].map(_ * 2)).to(Sink.foreach(i => println(s"Explicitly : $i")))
     pipeline1.run()
     
     // Starting from a Source
     val source1 = Source(1 to 6).map(_ * 2)
-    val pipeline2: RunnableGraph[Unit] = source1.to(Sink.foreach(i => println(s"Start From Source : $i")))
+    val pipeline2: RunnableGraph[NotUsed] = source1.to(Sink.foreach(i => println(s"Start From Source : $i")))
 //    pipeline2.run()
     
     // Starting from a Sink
-    val sink1: Sink[Int, Unit] = Flow[Int].map(_ * 2).to(Sink.foreach(i => println(s"Start From Sink : $i")))
-    val pipeline3: RunnableGraph[Unit] = Source(1 to 6).to(sink1)
+    val sink1: Sink[Int, NotUsed] = Flow[Int].map(_ * 2).to(Sink.foreach(i => println(s"Start From Sink : $i")))
+    val pipeline3: RunnableGraph[NotUsed] = Source(1 to 6).to(sink1)
 //    pipeline3.run()
     
     // Broadcast to a sink inline
-    val otherSink: Sink[Int, Unit] =
+    val otherSink: Sink[Int, NotUsed] =
       Flow[Int].alsoTo(Sink.foreach(i => println(s"Broadcast : $i"))).to(Sink.ignore)
     val pipeline4 = Source(1 to 6).to(otherSink)
 //    pipeline4.run
