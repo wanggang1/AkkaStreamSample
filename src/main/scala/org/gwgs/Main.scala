@@ -17,7 +17,7 @@ object Main {
     implicit val materializer = ActorMaterializer()
 
 /////////////////// Akka Stream ////////////////////////////////////////////////
-//    QuickStart.run
+    QuickStart.run
     
 //    Basics.basic
 //    Basics.wireup
@@ -80,12 +80,13 @@ object Main {
 
     // Http Server High Level APIs
 //    Overview.simpleMain
-    Overview.handleBindFailure
+//    Overview.handleBindFailure
     
 ////////////////////////////////////////////////////////////////////////////////
 
     //added for CustomProcessing.pushPull, and some other long running ones.
-    Thread.sleep(2000000)
+//    Thread.sleep(2000000)
+    Thread.sleep(1000)
     system.shutdown
     
     //always return Unit last, to prevent something from accidentally returned

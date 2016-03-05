@@ -1,5 +1,5 @@
-target
-.idea
+target/
+.idea/
 .idea_modules
 .DS_Store
 .classpath_nb
@@ -7,3 +7,6 @@ target
 .project
 .settings/
 .sbtserver
+.cache-*
+outputfiles/
+
