@@ -17,19 +17,20 @@ object Main {
     implicit val materializer = ActorMaterializer()
 
 /////////////////// Akka Stream ////////////////////////////////////////////////
-    QuickStart.run
+    //QuickStart.run
     
-//    Basics.basic
-//    Basics.wireup
+    //Basics.basic
+    //Basics.wireup
     
-//    Graphs.graph  
-//    Graphs.graphReuse
-//    Graphs.partialGraph
-//    Graphs.simpleSource
-//    Graphs.simpleFlow
-//    Graphs.simplifedAPI
-//    Graphs.customizeShape
-//    Graphs.materializedValue
+    //Graphs.graph  
+    //Graphs.graphReuse
+    //Graphs.partialGraph
+    //Graphs.simpleSource
+    //Graphs.simpleFlow
+    //Graphs.simplifedAPI
+    //Graphs.customizeShape
+    //Graphs.bidiFlow
+    Graphs.materializedValue
     
 //    Modularity.runnableGraph
 //    Modularity.partialGraph
@@ -85,12 +86,12 @@ object Main {
 ////////////////////////////////////////////////////////////////////////////////
 
     //added for CustomProcessing.pushPull, and some other long running ones.
-//    Thread.sleep(2000000)
-    Thread.sleep(1000)
-    system.shutdown
-    
-    //always return Unit last, to prevent something from accidentally returned
-    ()
+    //Thread.sleep(2000000)
+    Thread.sleep(2000)
+    system.terminate
+
+    //always return a Unit last, to prevent something from accidentally returned
+    println("End of program........")
   }
   
 }

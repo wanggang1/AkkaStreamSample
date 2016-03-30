@@ -29,7 +29,7 @@ object Basics {
     println(s"result = $result")
        
     //Processing stages are immutable, connecting them returns
-    // a new processing stage.  exising is not affected
+    // a new processing stage.  existing one is not affected.
     // Source.runWith materializes the flow and returns Sink's materialized value
     val zeroes = source.map(_ => 0)
     zeroes.runWith(sink) // 0
@@ -69,6 +69,25 @@ object Basics {
       Flow[Int].alsoTo(Sink.foreach(i => println(s"Broadcast : $i"))).to(Sink.ignore)
     val pipeline4 = Source(1 to 6).to(otherSink)
 //    pipeline4.run
+  }
+  
+  /**
+   * Fusing has slow initiation, but faster process.  No longer the fused stages
+   * could run in parallel.
+   */
+  def fusion(implicit system: ActorSystem, materializer: ActorMaterializer) = {
+    import akka.stream.Fusing
+ 
+    /*
+     * Pre-fusing map and filter together (put in 1 actor), then use it in
+     * stream flow.
+     */
+    val flow = Flow[Int].map(_ * 2).filter(_ > 500)
+    val fused = Fusing.aggressive(flow)
+     
+    Source.fromIterator { () => Iterator from 0 }
+      .via(fused)
+      .take(1000)
   }
 
   /*
