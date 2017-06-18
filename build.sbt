@@ -4,18 +4,16 @@ organization := "org.gwgs"
 
 version := "1.0"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.11"
 
 libraryDependencies ++= {
-    val akkaVersion = "2.4.7"
-    val akkaHttpVersion = "2.4.7"
-    val akkaStreamVersion = "2.4.7"
+    val akkaVersion = "2.5.2"
+    val akkaHttpVersion = "10.0.7"
+    val akkaStreamVersion = "2.5.2"
 
     Seq(
       "com.typesafe.akka" %% "akka-stream" % akkaStreamVersion,
       "com.typesafe.akka" %% "akka-http-core" % akkaHttpVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaHttpVersion,
-      "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaStreamVersion,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
