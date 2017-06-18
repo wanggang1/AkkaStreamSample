@@ -9,11 +9,9 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 
-import scala.language.postfixOps
 import scala.concurrent.duration._
-
-
 import scala.concurrent.Future
+import scala.io.StdIn
 
 object Overview {
 
@@ -32,11 +30,14 @@ object Overview {
     val bindingFuture = Http().bindAndHandle(route, "localhost", 8080)
 
     println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-    Console.readLine() // for the future transformations
-    
+    StdIn.readLine() // let it run until user presses return
+
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ ⇒ system.shutdown()) // and shutdown when done
+      .onComplete { _ ⇒
+          println("system shutdown")
+          system.shutdown()
+      } // and shutdown when done
   }
   
   /*

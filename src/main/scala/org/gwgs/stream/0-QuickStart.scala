@@ -47,10 +47,11 @@ object QuickStart {
     val result2: Future[IOResult] =
       factorials.map(_.toString).runWith(lineSink("outputfiles/factorials2.txt"))
         
+    //Print Results
     result.foreach(ior => println(s"IO Result: $ior"))
     result2.foreach(ior => println(s"IO Result 2: $ior"))
     
-    //apply back pressure with throttle
+    //Print Results: apply back pressure with throttle
     val done: Future[Done] =
       factorials
         .zipWith(Source(0 to 10))((num, idx) => s"$idx! = $num")

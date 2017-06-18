@@ -11,13 +11,13 @@ import org.gwgs.stream._
 
 object Main {
   
-  def main(args: Array[String]) = {
+  def main(args: Array[String]): Unit = {
   
     implicit val system = ActorSystem("akka-stream", ConfigFactory.load().getConfig("akka"))
     implicit val materializer = ActorMaterializer()
 
 /////////////////// Akka Stream ////////////////////////////////////////////////
-    //QuickStart.run
+    QuickStart.run
     
     //Basics.basic
     //Basics.wireup
@@ -30,7 +30,7 @@ object Main {
     //Graphs.simplifedAPI
     //Graphs.customizeShape
     //Graphs.bidiFlow
-    Graphs.materializedValue
+    //Graphs.materializedValue
     
 //    Modularity.runnableGraph
 //    Modularity.partialGraph
@@ -87,8 +87,15 @@ object Main {
 
     //added for CustomProcessing.pushPull, and some other long running ones.
     //Thread.sleep(2000000)
-    Thread.sleep(2000)
-    system.terminate
+    //Thread.sleep(2000)
+    //system.terminate
+    
+    sys.addShutdownHook {
+      system.log.info("Shutting down")
+      system.shutdown()
+      system.awaitTermination()
+      println(s"Actor system '${system.name}' successfully shut down")
+    }
 
     //always return a Unit last, to prevent something from accidentally returned
     println("End of program........")
