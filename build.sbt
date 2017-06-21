@@ -7,9 +7,9 @@ version := "1.0"
 scalaVersion := "2.11.11"
 
 libraryDependencies ++= {
-    val akkaVersion = "2.5.2"
-    val akkaHttpVersion = "10.0.7"
-    val akkaStreamVersion = "2.5.2"
+    val akkaVersion = "2.5.3"
+    val akkaHttpVersion = "10.0.8"
+    val akkaStreamVersion = "2.5.3"
 
     Seq(
       "com.typesafe.akka" %% "akka-stream" % akkaStreamVersion,
