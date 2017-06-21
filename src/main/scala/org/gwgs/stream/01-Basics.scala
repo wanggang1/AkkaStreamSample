@@ -1,14 +1,14 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.NotUsed
-import akka.actor.{ ActorSystem, Cancellable }
-import akka.stream.{ ActorMaterializer, ClosedShape }
+import akka.actor.{ActorSystem, Cancellable}
+import akka.stream.{ActorMaterializer, ClosedShape, ThrottleMode}
 import akka.stream.scaladsl._
 
-import scala.concurrent.{ Await, ExecutionContext, Future , Promise}
-
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.concurrent.duration._
+import scala.util.Try
 
 object Basics {
   
@@ -39,6 +39,12 @@ object Basics {
     val result1 = Await.result(sum1, 1 second)
     println(s"result1 = $result1")
 
+    // Sink.runWith materializes the flow and returns Source's materialized value
+    val optSource:Source[Int, Promise[Option[Int]]] = Source.maybe[Int]
+    val sum2: Promise[Option[Int]] = Sink.head.runWith(optSource)
+    sum2.complete(Try(Some(2)))
+    val result2: Option[Int] = Await.result(sum2.future, 1 second)
+    println(s"result2 = $result2")
   }
   
   /*
@@ -72,36 +78,51 @@ object Basics {
   }
   
   /**
-   * Fusing has slow initiation, but faster process.  No longer the fused stages
-   * could run in parallel.
+    * By default Akka Streams will fuse the stream operators. The processing stages of a flow
+    * or stream graph therefore will be executed within the same Actor and the results are:
+    *   - no asynchronous messaging boundary (across actors) -> faster
+    *   - no parallel execution, one CPY core per each fused part
+    *
+    * To allow for parallel processing, insert Attributes.asyncBoundary manually into flows
+    * and graphs by using the method async on Source, Sink and Flow
    */
   def fusion(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import akka.stream.Fusing
- 
-    /*
-     * Pre-fusing map and filter together (put in 1 actor), then use it in
-     * stream flow.
-     */
-    val flow = Flow[Int].map(_ * 2).filter(_ > 500)
-    val fused = Fusing.aggressive(flow)
-     
+    println("///////////////// Fusion /////////////////")
+    //by default, flow is fused
+    val flow = Flow[Int].map(_ * 2).filter(_ > 5000)
+
+    /**
+      * add fusion async boundary to enable parallel execution on map,
+      * any thing steps before async will be in one actor, after async
+      * will be in another
+      */
+    val flow_fused = Flow[Int].map(_ * 2).async.filter(_ > 5000)
+
     Source.fromIterator { () => Iterator from 0 }
-      .via(fused)
-      .take(1000)
+      .via(flow)
+      .take(10)
+      .runForeach(println)
+
+    Source.fromIterator { () => Iterator from 0 }
+      .via(flow_fused)
+      .take(10)
+      .runForeach(println)
   }
 
   /*
    * Combining materialized values
    */
-  def combine(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    println("///////////////// Combine /////////////////")
+  def combine(implicit system: ActorSystem, materializer: ActorMaterializer, ec: ExecutionContext) = {
+    println("///////////////// Combine materialized values/////////////////")
     
     // An source that can be signalled explicitly from the outside
     val source: Source[Int, Promise[Option[Int]]] = Source.maybe[Int]
 
     // A flow that internally throttles elements to 1/second, and returns a Cancellable
     // which can be used to shut down the stream
-    val flow: Flow[Int, Int, Cancellable] = null //throttler
+    //TODO: make materialized value to be Cancellable
+    //val flow: Flow[Int, Int, NotUsed] = Flow[Int].throttle(1, 1.second, 1, ThrottleMode.shaping)
+    val flow: Flow[Int, Int, Cancellable] = null
 
     // A sink that returns the first element of a stream in the returned Future
     val sink: Sink[Int, Future[Int]] = Sink.head[Int]
@@ -109,7 +130,7 @@ object Basics {
     // By default, the materialized value of the leftmost stage is preserved
     val r1: RunnableGraph[Promise[Option[Int]]] = source.via(flow).to(sink)
 
-    // Simple selection of materialized values by using Keep.right
+    // Simple selection of materialized values by using Keep.right, use toMat at the stage where the mat value is wanted
     val r2: RunnableGraph[Cancellable] = source.viaMat(flow)(Keep.right).to(sink)
     val r3: RunnableGraph[Future[Int]] = source.via(flow).toMat(sink)(Keep.right)
 
@@ -146,8 +167,6 @@ object Basics {
     // Type inference works as expected
     promise.success(None)
     cancellable.cancel()
-    
-    import ExecutionContext.Implicits.global
     future.map(_ + 3)
 
     // The result of r11 can be also achieved by using the Graph API

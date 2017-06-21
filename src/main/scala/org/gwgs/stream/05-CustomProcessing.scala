@@ -1,12 +1,12 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.{ ActorMaterializer, Attributes, Outlet, SourceShape, Graph}
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import akka.stream.stage.{ GraphStage, GraphStageLogic, OutHandler, PushPullStage, Context, SyncDirective, TerminationDirective, DetachedStage, DetachedContext, DownstreamDirective, UpstreamDirective}
-import scala.concurrent.{ Await, Future }
+import akka.stream._
+import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 object CustomProcessing {
@@ -33,7 +33,45 @@ object CustomProcessing {
     val result2 = Await.result(sum2, 300.millis)
     println(s"Sum 1 - 100 : $result2")
   }
-  
+
+  /*
+   * To extend the available transformations on a Flow or Source one can use the
+   * transform() method which takes a factory function returning a Stage.
+   */
+  def pushPull(implicit system: ActorSystem, materializer: ActorMaterializer) = {
+
+    Source(1 to 10)
+      .via(new Filter(_ % 2 == 0))
+      .via(new Duplicator())
+      .via(new Map(_ / 2))
+      .runWith(Sink.foreach(println))
+
+    Source(1 to 10).filter(_ % 2 != 0)
+      .via(new Duplicator())
+      .runWith(Sink.foreach(println))
+
+  }
+
+  //--------------------------------------------------------------------------------------
+  /*
+   * Stages come in different flavors. The most elementary transformation stage is
+   * the PushPullStage which can express a large class of algorithms working on streams.
+   * A PushPullStage can be illustrated as a box with two "input" and two "output ports".
+   * The "input ports" are implemented as event handlers onPush(elem,ctx) and onPull(ctx)
+   * while "output ports" correspond to methods on the Context object that is passed as
+   * a parameter to the event handlers. By calling exactly one "output port" method we wire
+   * up these four ports in various ways which we demonstrate shortly.
+   *
+   * The callbacks (onPush, onPull) are never called concurrently. The state encapsulated by
+   * this class can be safely modified from these callbacks, without any further synchronization.
+   *
+   * There is one very important rule to remember when working with a Stage. Exactly one
+   * method should be called on the currently passed Context exactly once and as the last
+   * statement of the handler where the return type of the called method matches the expected
+   * return type of the handler. Any violation of this rule will almost certainly result
+   * in unspecified behavior
+   */
+
   class NumbersSource extends GraphStage[SourceShape[Int]] {
     // Define the (sole) output port of this stage
     val out: Outlet[Int] = Outlet("NumbersSource")
@@ -59,175 +97,169 @@ object CustomProcessing {
       }
   }
 
-  //--------------------------------------------------------------------------------------
-  
-  /*
-   * To extend the available transformations on a Flow or Source one can use the
-   * transform() method which takes a factory function returning a Stage. 
-   */
-  def pushPull(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    Source(1 to 10)
-    .transform(() => new Filter(_ % 2 == 0))
-    .transform(() => new Duplicator())
-    .transform(() => new Map(_ / 2))
-    .runWith(Sink.foreach(println))
-    
-    Source(1 to 10).filter(_ % 2 != 0)
-    .transform(() => new Duplicator()).map(identity)
-    .runWith(Sink.foreach(println))
-  }
-  
-  /*
-   * Stages come in different flavors. The most elementary transformation stage is
-   * the PushPullStage which can express a large class of algorithms working on streams.
-   * A PushPullStage can be illustrated as a box with two "input" and two "output ports".
-   * The "input ports" are implemented as event handlers onPush(elem,ctx) and onPull(ctx)
-   * while "output ports" correspond to methods on the Context object that is passed as
-   * a parameter to the event handlers. By calling exactly one "output port" method we wire
-   * up these four ports in various ways which we demonstrate shortly.
-   * 
-   * The callbacks (onPush, onPull) are never called concurrently. The state encapsulated by
-   * this class can be safely modified from these callbacks, without any further synchronization.
-   *
-   * There is one very important rule to remember when working with a Stage. Exactly one
-   * method should be called on the currently passed Context exactly once and as the last
-   * statement of the handler where the return type of the called method matches the expected
-   * return type of the handler. Any violation of this rule will almost certainly result
-   * in unspecified behavior 
-   */
-  
   /*
    * Map is a typical example of a one-to-one transformation of a stream
    */
-  class Map[A, B](f: A => B) extends PushPullStage[A, B] {
-    //input port
-    override def onPush(elem: A, ctx: Context[B]): SyncDirective =
-      //output port
-      ctx.push(f(elem))
+  class Map[A, B](f: A => B) extends GraphStage[FlowShape[A, B]] {
 
-    //input port
-    override def onPull(ctx: Context[B]): SyncDirective =
-      //output port
-      ctx.pull()
+    val in = Inlet[A]("Map.in")
+    val out = Outlet[B]("Map.out")
+
+    override val shape = FlowShape.of(in, out)
+
+    override def createLogic(attr: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
+        setHandler(in, new InHandler {
+          override def onPush(): Unit = {
+            push(out, f(grab(in)))
+          }
+        })
+        setHandler(out, new OutHandler {
+          override def onPull(): Unit = {
+            pull(in)
+          }
+        })
+      }
   }
-  
+
   /*
    * Filter is a many-to-one stage.  If the given predicate matches the current
-   * element it is propagated downwards, otherwise upstream is signaled with 
-   * ctx.pull() to get the new element.
+   * element it is propagated downwards, otherwise upstream is signaled with
+   * pull() to get the new element.
    */
-  class Filter[A](p: A => Boolean) extends PushPullStage[A, A] {
-    override def onPush(elem: A, ctx: Context[A]): SyncDirective =
-      if (p(elem)) ctx.push(elem)
-      else ctx.pull()
+  class Filter[A](p: A => Boolean) extends GraphStage[FlowShape[A, A]] {
 
-    override def onPull(ctx: Context[A]): SyncDirective =
-      ctx.pull()
+    val in = Inlet[A]("Filter.in")
+    val out = Outlet[A]("Filter.out")
+
+    val shape = FlowShape.of(in, out)
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
+        setHandler(in, new InHandler {
+          override def onPush(): Unit = {
+            val elem = grab(in)
+            if (p(elem)) push(out, elem)
+            else pull(in)
+          }
+        })
+        setHandler(out, new OutHandler {
+          override def onPull(): Unit = {
+            pull(in)
+          }
+        })
+      }
   }
 
   /*
    *  one-to-many transformation, the Duplicator stage that emits every upstream
-   *  element twice downstream 
+   *  element twice downstream
    */
-  class Duplicator[A]() extends PushPullStage[A, A] {
-    private var lastElem: A = _
-    private var oneLeft = false
+  class Duplicator[A] extends GraphStage[FlowShape[A, A]] {
 
-    /*
-     * this is triggered by the upstream push action, synchronized with onPull of 
-     * this PushPullStage (enforced by return type SyncDirective)
-     * 
-     * the state is safe because upsteam would not issue the next push action unless the 
-     * unPull event in this PullPushStage signaling it with ctx.pull() call
-     */
-    override def onPush(elem: A, ctx: Context[A]): SyncDirective = {
-      lastElem = elem
-      oneLeft = true
-      ctx.push(elem) //trigger the onPush event downstream
-    }
+    val in = Inlet[A]("Duplicator.in")
+    val out = Outlet[A]("Duplicator.out")
 
-    /*
-     * this is triggered by the downstream pull action, synchronized with onPush of 
-     * this PushPullStage (enforced by return type SyncDirective)
-     */
-    override def onPull(ctx: Context[A]): SyncDirective =
-      if (!ctx.isFinishing) {
-        if (oneLeft) {
-          oneLeft = false
-          ctx.push(lastElem) //trigger the onPush event downstream
-        } else
-          ctx.pull() //trigger onPull event upstream
-      } else {
-        if (oneLeft) ctx.pushAndFinish(lastElem)
-        else ctx.finish()
+    val shape = FlowShape.of(in, out)
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
+        // Again: note that all mutable state
+        // MUST be inside the GraphStageLogic
+        var lastElem: Option[A] = None
+
+        setHandler(in, new InHandler {
+          override def onPush(): Unit = {
+            val elem = grab(in)
+            lastElem = Some(elem)
+            push(out, elem)
+          }
+
+          override def onUpstreamFinish(): Unit = {
+            if (lastElem.isDefined) emit(out, lastElem.get)
+            complete(out)
+          }
+
+        })
+        setHandler(out, new OutHandler {
+          override def onPull(): Unit = {
+            if (lastElem.isDefined) {
+              push(out, lastElem.get)
+              lastElem = None
+            } else {
+              pull(in)
+            }
+          }
+        })
       }
-
-    /*
-     * Completion handling usually (but not exclusively) comes into the picture
-     * when processing stages need to emit a few more elements after their upstream
-     * source has been completed.
-     * 
-     * After calling absorbTermination() the onPull() handler will be called eventually,
-     * and at the same time ctx.isFinishing will return true, indicating that ctx.pull()
-     * cannot be called anymore.  Now we are free to emit additional elementss and call
-     * ctx.finish() or ctx.pushAndFinish() eventually to finish processing.
-     */
-    override def onUpstreamFinish(ctx: Context[A]): TerminationDirective =
-      ctx.absorbTermination()
-
   }
-  
+
   //--------------------------------------------------------------------------------------
-  
+
   /*
    * One of the important use-cases for DetachedStage is to build buffer-like entities,
    * that allow independent progress of upstream and downstream stages when the buffer
    * is not full or empty, and slowing down the appropriate side if the buffer becomes
-   * empty or full. 
+   * empty or full.
    */
-  class Buffer2[T]() extends DetachedStage[T, T] {
-    private var buf = Vector.empty[T]
-    private var capacity = 2
+  class TwoBuffer[A] extends GraphStage[FlowShape[A, A]] {
 
-    private def isFull = capacity == 0
-    private def isEmpty = capacity == 2
+    val in = Inlet[A]("TwoBuffer.in")
+    val out = Outlet[A]("TwoBuffer.out")
 
-    private def dequeue(): T = {
-      capacity += 1
-      val next = buf.head
-      buf = buf.tail
-      next
-    }
+    val shape = FlowShape.of(in, out)
 
-    private def enqueue(elem: T) = {
-      capacity -= 1
-      buf = buf :+ elem
-    }
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
 
-    override def onPull(ctx: DetachedContext[T]): DownstreamDirective = {
-      if (isEmpty) {
-        if (ctx.isFinishing) ctx.finish() // No more elements will arrive
-        else ctx.holdDownstream() // waiting until new elements
-      } else {
-        val next = dequeue()
-        if (ctx.isHoldingUpstream) ctx.pushAndPull(next) // release upstream
-        else ctx.push(next)
+        val buffer = scala.collection.mutable.Queue[A]()
+        def bufferFull = buffer.size == 2
+        var downstreamWaiting = false
+
+        override def preStart(): Unit = {
+          // a detached stage needs to start upstream demand
+          // itself as it is not triggered by downstream demand
+          pull(in)
+        }
+
+        setHandler(in, new InHandler {
+          override def onPush(): Unit = {
+            val elem = grab(in)
+            buffer.enqueue(elem)
+            if (downstreamWaiting) {
+              downstreamWaiting = false
+              val bufferedElem = buffer.dequeue()
+              push(out, bufferedElem)
+            }
+            if (!bufferFull) {
+              pull(in)
+            }
+          }
+
+          override def onUpstreamFinish(): Unit = {
+            if (buffer.nonEmpty) {
+              // emit the rest if possible
+              emitMultiple(out, buffer.toIterator)
+            }
+            completeStage()
+          }
+        })
+
+        setHandler(out, new OutHandler {
+          override def onPull(): Unit = {
+            if (buffer.isEmpty) {
+              downstreamWaiting = true
+            } else {
+              val elem = buffer.dequeue
+              push(out, elem)
+            }
+            if (!bufferFull && !hasBeenPulled(in)) {
+              pull(in)
+            }
+          }
+        })
       }
-    }
 
-    override def onPush(elem: T, ctx: DetachedContext[T]): UpstreamDirective = {
-      enqueue(elem)
-      if (isFull) ctx.holdUpstream() // Queue is now full, wait until new empty slot
-      else {
-        if (ctx.isHoldingDownstream) ctx.pushAndPull(dequeue()) // Release downstream
-        else ctx.pull()
-      }
-    }
-
-    override def onUpstreamFinish(ctx: DetachedContext[T]): TerminationDirective = {
-      if (!isEmpty) ctx.absorbTermination() // still need to flush from buffer
-      else ctx.finish() // already empty, finishing
-    }
   }
-  
+
 }

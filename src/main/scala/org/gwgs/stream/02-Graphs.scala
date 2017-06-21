@@ -1,4 +1,4 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.{ Done, NotUsed }
 import akka.actor.{ ActorRef, ActorSystem }
@@ -58,6 +58,7 @@ object Graphs {
     val sharedDoubler: Flow[Int, Int, NotUsed] = Flow[Int].map(_ * 2)
 
     //When graph is created with arguments, arguments can be retrieved inside the creation function
+    // How GraphDSL.Builder[(Future[Int], Future[Int])] chooses the materialized value from the sink, not the by-default source???
     val g: RunnableGraph[(Future[Int], Future[Int])] =
       RunnableGraph.fromGraph(GraphDSL.create(topHeadSink, bottomHeadSink)((_, _)) { implicit builder: GraphDSL.Builder[(Future[Int], Future[Int])] =>
         (topHS, bottomHS) =>
@@ -94,6 +95,7 @@ object Graphs {
       import GraphDSL.Implicits._
       zip1.out ~> zip2.in0
 
+      // constructed with 1 outlet and multiple inlets
       UniformFanInShape(zip2.out, zip1.in0, zip1.in1, zip2.in1)
     }
  
@@ -103,7 +105,8 @@ object Graphs {
     val g = RunnableGraph.fromGraph(GraphDSL.create(resultSink) { implicit b =>
       sink =>
         // importing the partial graph will return its shape (inlets & outlets)
-        val pm3 = b.add(pickMaxOfThree)
+        // the types are for Inlet and Outlet
+        val pm3: UniformFanInShape[Int, Int] = b.add(pickMaxOfThree)
 
         import GraphDSL.Implicits._
         /*
@@ -125,7 +128,8 @@ object Graphs {
   }
   
   /*
-   * pack complex graphs inside Source.  Similar for Sink, use SinkShap in which the provided value must be an Inlet[T]
+   * Pack complex graphs inside Source, then expose 1 Outlet[T].
+   * Similar for Sink, use SinkShap then expose 1 Inlet[T]
    */
   def simpleSource(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     val pairs = Source.fromGraph(GraphDSL.create() { implicit b =>
@@ -232,6 +236,7 @@ object Graphs {
    g.run()
   }
 
+
   /*
    * add a framing protocol that attaches a length header to outgoing data and parses
    * incoming frames back into the original octet stream chunks
@@ -308,20 +313,9 @@ object ArbitraryShape {
       jobsIn.carbonCopy(),
       priorityJobsIn.carbonCopy(),
       resultsOut.carbonCopy())
-
-    // A Shape must also be able to create itself from existing ports
-    override def copyFromPorts(
-      inlets: scala.collection.immutable.Seq[Inlet[_]],
-      outlets: scala.collection.immutable.Seq[Outlet[_]]) = {
-      assert(inlets.size == this.inlets.size)
-      assert(outlets.size == this.outlets.size)
-      // This is why order matters when overriding inlets and outlets.
-      PriorityWorkerPoolShape[In, Out](inlets(0).as[In], inlets(1).as[In], outlets(0).as[Out])
-    }
   }
 
-  import FanInShape.Name
-  import FanInShape.Init
+  import FanInShape.{Init, Name}
 
   //Since PriorityWorkerPoolShape has two input ports and one output port,
   //FanInShape DSL is used to define this custom shape.
@@ -367,7 +361,6 @@ object ArbitraryShape {
   }
 
 }
-
 
 /**
  * BiDirectionalFlow

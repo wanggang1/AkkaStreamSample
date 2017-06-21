@@ -1,22 +1,23 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.{ ActorAttributes, ActorMaterializer, ActorMaterializerSettings }
+import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings}
 import akka.stream.Supervision
 import akka.stream.scaladsl._
+import org.gwgs.{Author, QuickStart}
 
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.concurrent.duration._
-import scala.util.{ Failure, Success }
+import scala.util.{Failure, Success}
 
-object ErrorHandling {
+object FailureHandling {
 
   /*
    * By default Stop strategy is used for all exceptions. The stream will be completed with failure.
    */
-  def default(implicit system: ActorSystem, materializer: ActorMaterializer) = {
+  def defaultToStop(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     val source = Source(0 to 5).map(100 / _)
     val sum = source.runWith(Sink.fold(0)(_ + _))
     
@@ -49,7 +50,10 @@ object ErrorHandling {
       case Success(i) => println(s"Success, $i")
     }
   }
-  
+
+  /*
+   * defined for individual operator
+   */
   def overrideInFlow(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     val decider: Supervision.Decider = {
       case _: ArithmeticException => Supervision.Resume
@@ -99,9 +103,11 @@ object ErrorHandling {
   /*
    * Stream supervision can also be applied to the futures of mapAsync.  if not applied,
    * the default stopping strategy would complete the stream with failure on the first 
-   * Future that was completed with Failure. 
+   * Future that was completed with Failure.
+   *
+   * ORDER in stream is kept, because mapAsync is only used once!!!
    */
-  def fromExternal(implicit system: ActorSystem, materializer: ActorMaterializer) = {
+  def mapAsyncExternalFailure(implicit system: ActorSystem, materializer: ActorMaterializer, ec: ExecutionContext) = {
     import QuickStart.{ akkaTag, tweets }
     import ActorAttributes.supervisionStrategy
     import Supervision.resumingDecider  //always resume no matter what exception
@@ -119,9 +125,7 @@ object ErrorHandling {
   }
   
   //////////////////////////////////////////////////////////////////////////////
-  import scala.concurrent.ExecutionContext.Implicits.global
-  
-  def lookupEmail(handle: String): Future[String] = Future {
+  def lookupEmail(handle: String)(implicit ec: ExecutionContext): Future[String] = Future {
     val parts = handle.split(" ")
     
     //drop the first one

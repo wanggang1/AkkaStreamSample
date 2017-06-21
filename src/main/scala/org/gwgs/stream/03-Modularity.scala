@@ -1,4 +1,4 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -124,7 +124,7 @@ object Modularity {
 
     // Building a Sink with a nested Flow, using the fluid DSL
     val sink = {
-      val nestedFlow = Flow[Int].map(_ * 2).drop(1).named("nestedFlow")
+      val nestedFlow = Flow[Int].map(_ * 2).drop(10).named("nestedFlow")
       nestedFlow.toMat(Sink.head)(Keep.right)
     }
 
@@ -138,7 +138,7 @@ object Modularity {
   /*
    * Each module inherits the inputBuffer attribute from its enclosing parent,
    * unless it has the same attribute explicitly set.
-   * Materializer sets the top level deffauts
+   * Materializer sets the top level defaults
    */
   def attributes(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import Attributes._

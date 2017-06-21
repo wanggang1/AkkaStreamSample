@@ -1,8 +1,10 @@
-package org.gwgs
+package org.gwgs.stream
 
+import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.{ ActorMaterializer, ClosedShape , Attributes, OverflowStrategy}
+import akka.stream.{ActorMaterializer, Attributes, ClosedShape, OverflowStrategy}
 import akka.stream.scaladsl._
+
 import scala.concurrent.duration._
 import scala.util.Random
   
@@ -12,28 +14,46 @@ object Buffers {
   case class Tick()
   case class Job()
 
+  def sample(implicit materializer: ActorMaterializer) = {
+
+    val section = Flow[Int]
+                  .map(_ * 2).async
+                  .addAttributes(Attributes.inputBuffer(initial = 1, max = 1)) // the buffer size of this map is 1
+
+    val flow = section.via(Flow[Int].map(_ / 2)).async // the buffer size of this map is the default
+
+    Source(1 to 3)
+      .map { i => println(s"A: $i"); i }.async
+      .map { i => println(s"B: $i"); i }.async
+      .map { i => println(s"C: $i"); i }.async
+      .runWith(Sink.ignore)
+  }
+
   /*
-   * To run this, comment out system.shutdown in Main to allow the tick to contunue
-   * 
    * Akka Streams use Internal buffer to reduce the cost of crossing elements through the asynchronous boundary.
    *
-   * Here is an example of a code that demonstrate some of the issues caused by internal buffers.  Running this,
-   * one would expect the number 3 to be printed in every 3 seconds. What is being printed is different though, 
+   * Here is an example of a code that demonstrate some of the issues caused by internal buffers  (the conflateWithSeed
+   * step here is configured so that it counts the number of elements received before the downstream ZipWith consumes them).
+   * Running this, one would expect the number 3 to be printed in every 3 seconds. What is being printed is different though,
    * we will see the number 1. The reason is the internal buffer of ZipWith which is by default 16 elements large,
    * and prefetches elements before the ZipWith starts consuming them (conflate will only work when downstream is slower). 
    * It is possible to fix this issue by changing the buffer size of ZipWith (or the whole graph) to 1. We will still see
-   * a leading 1 though which is caused by an initial prefetch of the ZipWith element. 
+   * a leading 1 though which is caused by an initial prefetch of the ZipWith element.
+   *
+   * NOTE: since 2.5.0 fusion becomes default, and this is not an issue any more.  Apparently it's only an issue when
+   *       message flow cross async boundary.  There is no buffer if it's fused????
    */
   def internalBuffers(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     
     val closed = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
 
-//      val zipper = b.add(ZipWith[Tick, Int, Int]((tick, count) => count))
-      val zipper = b.add(ZipWith[Tick, Int, Int]((tick, count) => count).withAttributes(Attributes.inputBuffer(initial = 1, max = 1)))
+      val zipper = b.add(ZipWith[Tick, Int, Int]((tick, count) => count).async)
+      //val zipper = b.add(ZipWith[Tick, Int, Int]((tick, count) => count).async.withAttributes(Attributes.inputBuffer(initial = 1, max = 1)))
 
       Source.tick(initialDelay = 3.second, interval = 3.second, Tick()) ~> zipper.in0
 
+      // conflateWithSeed works when downstream (waiting on the 3 seconds tick) is slower
       Source.tick(initialDelay = 1.second, interval = 1.second, "message!")
         .conflateWithSeed(seed = (_) => 1)((count, _) => count + 1) ~> zipper.in1
         
@@ -108,13 +128,14 @@ object Buffers {
         val σ = Math.sqrt(se.sum / se.size)
         (σ, μ, s.size)
       }
-      
-//    val p = 0.01
-//    val sampleFlow = Flow[Double]
-//      .conflate(Seq(_)) {
-//        case (acc, elem) if Random.nextDouble < p => acc :+ elem
-//        case (acc, _)                             => acc
-//      }.mapConcat(identity)
+
+    val p = 0.01
+    val sampleFlow = Flow[Double]
+      .conflateWithSeed(Seq(_)) {
+          case (acc, elem) if Random.nextDouble < p => acc :+ elem
+          case (acc, _)                             => acc
+        }
+      .mapConcat(x => x.toList)
   }
   
   /*

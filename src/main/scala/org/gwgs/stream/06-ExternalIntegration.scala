@@ -1,4 +1,4 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.NotUsed
 import akka.actor.{ Actor, ActorSystem, Props }
@@ -7,7 +7,7 @@ import akka.stream.scaladsl._
 import akka.util.Timeout
 
 import java.util.concurrent.atomic.AtomicInteger
-
+import org.gwgs.{Author, QuickStart, Tweet}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
@@ -24,22 +24,24 @@ object ExternalIntegration {
   case class Email(to: String = "", title: String = "", body: String = "")
   case class TextMessage(to: Int, body: String)
   
-  def send(email: Email): Future[Unit] = Future {
+  def send(email: Email)(implicit ec: ExecutionContext): Future[Unit] =
+    Future {
+      // sending...
+      Thread.sleep(100)
+      println(s"Email: ${email.to} ${email.body}")
+    }
+  
+  def sendSMS_Blocking(text: TextMessage): Unit = {
     // sending...
     Thread.sleep(100)
-    println(s"${email.to} ${email.body}")
+    println(s"SMS: ${text.to} ${text.body}")
   }
   
-  def sendSMS(text: TextMessage): Unit = {
-    // sending...
-    Thread.sleep(100)
-    println(s"${text.to} ${text.body}")
-  }
-  
-  def lookupEmail(handle: String): Future[Option[String]] = Future {
-    val parts = handle.split(" ")
-    Some(parts.last)
-  }
+  def lookupEmail(handle: String)(implicit ec: ExecutionContext): Future[Option[String]] =
+    Future {
+      val parts = handle.split(" ")
+      Some(parts.last)
+    }
   
   /*
    * mapAsync is applying the given function that is calling out to the external
@@ -48,8 +50,8 @@ object ExternalIntegration {
    * emitted downstreams.  These Futures may complete in any order, but the elements
    * that are emitted downstream are in the SAME ORDER as received from upstream.
    * 
-   * with mapAsync(4), order seems not kept in this method????, but ordered() below shows
-   * the order is kept!!!!!
+   * with mapAsync(4), sometimes order seems not kept exactly, but ordered() below shows
+   * the order is kept!!!!!  Because the mapAsync is applied 2 times????
    * 
    * In mapAsync(4)(func), The argument "4" the numner of Futures that shall run
    * in parallel. 
@@ -110,7 +112,7 @@ object ExternalIntegration {
       Source(1 to 10)
         .mapAsync(4)(phoneNo => {
           Future {
-            sendSMS( TextMessage(to = phoneNo, body = "I like your text") )
+            sendSMS_Blocking( TextMessage(to = phoneNo, body = "I like your text") )
           }(blockingExecutionContext)
         })
         .to(Sink.ignore)
@@ -124,8 +126,8 @@ object ExternalIntegration {
     //calls concurrently, but map performs them one at a time.
     //
     //BUT, This guarentees ORDER!!!!!!
-    val send = Flow[Int].map{ phoneNo => 
-        sendSMS(TextMessage(to = phoneNo, body = "I like your text with map"))
+    val send = Flow[Int].map{ phoneNo =>
+      sendSMS_Blocking(TextMessage(to = phoneNo, body = "I like your text with map"))
       }.withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher"))
           
     val sendTextMessages2: RunnableGraph[NotUsed] = Source(1 to 10).via(send).to(Sink.ignore)
@@ -136,6 +138,8 @@ object ExternalIntegration {
   /*
    * For a service that is exposed as an actor, or if an actor is used as a gateway
    * in front of an external service, you can use ask
+   *
+   * ORDER is kept!!! because it's only 1 mapAsync applied???
    */
   def externalActor(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import QuickStart.{ akkaTag, tweets }

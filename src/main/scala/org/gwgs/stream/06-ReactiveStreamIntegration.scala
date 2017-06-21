@@ -1,7 +1,9 @@
-package org.gwgs
+package org.gwgs.stream
 
+import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
+import org.gwgs.{Author, QuickStart, Tweet}
 
 object ReactiveStreamIntegration {
 
@@ -14,7 +16,7 @@ object ReactiveStreamIntegration {
   def otherStream(implicit materializer: ActorMaterializer) = {
     import QuickStart.akkaTag
     
-    val authors = Flow[Tweet]
+    val authors: Flow[Tweet,Author,NotUsed] = Flow[Tweet]
       .filter(_.hashtags.contains(akkaTag))
       .map(_.author)
 

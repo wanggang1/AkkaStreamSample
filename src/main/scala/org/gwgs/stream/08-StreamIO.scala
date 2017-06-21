@@ -1,18 +1,18 @@
-package org.gwgs
+package org.gwgs.stream
 
 import akka.actor.ActorSystem
-import akka.stream.{ ActorMaterializer, FlowShape , ActorAttributes, IOResult}
+import akka.stream.{ActorAttributes, ActorMaterializer, FlowShape, IOResult}
 import akka.stream.scaladsl._
-
 import akka.util.ByteString
+import java.nio.file.Paths
 
-import java.io.File
+import akka.NotUsed
+
 import scala.concurrent.Await
 import scala.concurrent.Future
-
+import scala.io.StdIn.readLine
 import scala.language.postfixOps
 import scala.concurrent.duration._
-
 
 object StreamIO {
 
@@ -31,7 +31,7 @@ object StreamIO {
  
     val connections: Source[IncomingConnection, Future[ServerBinding]] =
       Tcp().bind("127.0.0.1", 8888)
-    
+
     connections runForeach { connection =>
       println(s"New connection from: ${connection.remoteAddress}")
 
@@ -47,24 +47,19 @@ object StreamIO {
       connection.handleWith(echo)
     }
   }
-  
+
   /*
    * Client interacts with server using Akka Streams over TCP
    */
   def replClient(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import akka.stream.scaladsl.Framing
-    import akka.stream.stage.{ Context, PushStage, SyncDirective }
 
     val connection = Tcp().outgoingConnection("127.0.0.1", 8888)
- 
-    val replParser = new PushStage[String, ByteString] {
-      override def onPush(elem: String, ctx: Context[ByteString]): SyncDirective = {
-        elem match {
-          case "q" ⇒ ctx.pushAndFinish(ByteString("BYE\n"))
-          case _   ⇒ ctx.push(ByteString(s"$elem\n"))
-        }
-      }
-    }
+
+    val replParser: Flow[String,ByteString,NotUsed] =
+      Flow[String].takeWhile(_ != "q")
+        .concat(Source.single("BYE"))
+        .map(elem => ByteString(s"$elem\n"))
 
     val repl = Flow[ByteString]
       .via(Framing.delimiter(
@@ -74,83 +69,62 @@ object StreamIO {
       .map(_.utf8String)
       .map(text => println("Server: " + text))
       .map(_ => readLine("> "))
-      .transform(() ⇒ replParser)
+      .via(replParser)
 
     connection.join(repl).run()
   }
-  
+
   /*
    * Client interacts with server using Akka Streams over TCP
    */
   def replClient2(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import akka.stream.scaladsl.Framing
-    import akka.stream.stage.{ Context, PushStage, SyncDirective }
 
     val connections = Tcp().bind("127.0.0.1", 8888)
- 
+
     connections runForeach { connection =>
-      val serverLogic = Flow.fromGraph(GraphDSL.create() { implicit b =>
-        import GraphDSL.Implicits._
+      // server logic, parses incoming commands
+      val commandParser = Flow[String].takeWhile(_ != "BYE").map(_ + "!")
 
-        // server logic, parses incoming commands
-        val commandParser = new PushStage[String, String] {
-          override def onPush(elem: String, ctx: Context[String]): SyncDirective = {
-            elem match {
-              case "BYE" ⇒ ctx.finish()
-              case _     ⇒ ctx.push(elem + "!")
-            }
-          }
-        }
+      import connection._
+      val welcomeMsg = s"Welcome to: $localAddress, you are: $remoteAddress!"
+      val welcome = Source.single(welcomeMsg)
 
-        import connection._
-        val welcomeMsg = s"Welcome to: $localAddress, you are: $remoteAddress!\n"
-
-        val welcome = Source.single(ByteString(welcomeMsg))
-        val echo = b.add(Flow[ByteString]
-          .via(Framing.delimiter(
-            ByteString("\n"),
-            maximumFrameLength = 256,
-            allowTruncation = true))
-          .map(_.utf8String)
-          .transform(() ⇒ commandParser)
-          .map(_ + "\n")
-          .map(ByteString(_)))
-
-        val concat = b.add(Concat[ByteString]())
-        // first we emit the welcome message,
-        welcome ~> concat.in(0)
-        // then we continue using the echo-logic Flow
-        echo.outlet ~> concat.in(1)
-
-        FlowShape(echo.in, concat.out)
-      })
+      val serverLogic = Flow[ByteString]
+        .via(Framing.delimiter(
+          ByteString("\n"),
+          maximumFrameLength = 256,
+          allowTruncation = true))
+        .map(_.utf8String)
+        .via(commandParser)
+        // merge in the initial banner after parser
+        .merge(welcome)
+        .map(_ + "\n")
+        .map(ByteString(_))
 
       connection.handleWith(serverLogic)
     }
   }
-  
+
   /*
-   * Since the current version of Akka (2.3.x) needs to support JDK6, the currently
-   * provided File IO implementations are not able to utilise Asynchronous File IO
-   * operations, as these were introduced in JDK7 (and newer). Once Akka is free to
-   * require JDK8 (from 2.4.x) these implementations will be updated to make use of
-   * the new NIO APIs (i.e. AsynchronousFileChannel).
+   * Akka Streams provide simple Sources and Sinks that can work with ByteString
+   * instances to perform IO operations on files.
    */
   def fileIO(implicit system: ActorSystem, materializer: ActorMaterializer) = {
     import akka.stream.scaladsl._
-    val file = new File("external/sample.csv")
+    val pathToFile = Paths.get("external/sample.csv")
 
-    val fileLength: Future[IOResult] = FileIO.fromFile(file)
+    val fileResult: Future[IOResult] = FileIO.fromPath(pathToFile)
       .withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher")) //to configure globally, changing the akka.stream.blocking-io-dispatcher
       .to(Sink.ignore)
       .run()
-      
-    val result = Await.result(fileLength, 1 second)
-    println(s"File length is $result")
-    
-    FileIO.fromFile(file)
-      .withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher")) //to configure globally, changing the akka.stream.blocking-io-dispatcher
+
+    val result = Await.result(fileResult, 1 second)
+    println(s"File result is $result")
+
+    FileIO.fromPath(pathToFile)
+      .withAttributes(ActorAttributes.dispatcher("stream.my-blocking-dispatcher"))
       .runForeach(file => println(s"$file"))
   }
-  
+
 }

@@ -1,37 +1,42 @@
 package org.gwgs
 
-import akka.{ Done, NotUsed }
-import akka.actor.ActorSystem
-import akka.stream.{ ActorMaterializer, IOResult, ThrottleMode }
-import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source, FileIO }
-import akka.util.ByteString
+import java.nio.file.Paths
 
-import java.io.File
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{FileIO, Flow, Keep, RunnableGraph, Sink, Source}
+import akka.stream.{ActorMaterializer, IOResult, ThrottleMode}
+import akka.util.ByteString
+import akka.{Done, NotUsed}
 
 import scala.concurrent.duration._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 
 object QuickStart {
-  
+
   val akkaTag = Hashtag("#akka")
   val tweets: Source[Tweet, NotUsed] = Source(1 to 10).map(i => Tweet(Author(s"$i $i@gmail.com"), 0L, s"Tweet $i #akka #scala"))
 
   /**
-   * reusable piece that can write string to file
-   */
+    * reusable piece that can write string to file
+    *
+    * when chaining operations on a Source or Flow, the type
+    * of the auxiliary information—called the “materialized value”
+    * is given by the leftmost starting point; since we want to
+    * retain what the FileIO.toPath sink has to offer, we need to
+    * say Keep.right).
+    */
   private def lineSink(filename: String): Sink[String, Future[IOResult]] =
     Flow[String]
       .map(s => ByteString(s + "\n"))
-      .toMat(FileIO.toFile(new File(filename)))(Keep.right)
+      .toMat(FileIO.toPath(Paths.get(filename)))(Keep.right)
       
   /////////////////// Materialized values /////////////////////////////
-  def run(implicit system: ActorSystem, materializer: ActorMaterializer) = {
-    import ExecutionContext.Implicits.global
+  def run(implicit system: ActorSystem, materializer: ActorMaterializer, ec: ExecutionContext): Future[Done] = {
     
     //EXAMPLE 1
     //scan is similar to fold but is not a terminal operation, emits its current value which starts at zero
     //and then applies the current and next value to the given function f, emits the next current value.
-    //it omits the zero element first then elements from Source(1 to 10), total 11 elements.
+    //it emits the zero element first then elements from Source(1 to 10), total 11 elements.
     val factorials = Source(1 to 10).scan(BigInt(1))((acc, next) => acc * next)
     
     //construct a runnable graph using FileIO sink and run
@@ -41,7 +46,7 @@ object QuickStart {
     val result: Future[IOResult] =
       factorials
         .map(num => ByteString(s"$num\n"))
-        .runWith(FileIO.toFile(new File("outputfiles/factorials.txt")))
+        .runWith(FileIO.toPath(Paths.get("outputfiles/factorials.txt")))
     
     //abstract writing logic to a reusable piece
     val result2: Future[IOResult] =
@@ -67,13 +72,14 @@ object QuickStart {
     val counterGraph: RunnableGraph[Future[Int]] =
       tweets
         .via(count)
-        .toMat(sumSink)(Keep.right) //Keep.right -> Mat type of the Sink, Keep.left -> Mat type of the Source???
+        .toMat(sumSink)(Keep.right) //Keep.right -> Mat type appended to the right (Sink),
+                                    //Keep.left -> Mat type appended to the left (Source)
 
     //run the graph will materialize it
     //materialization is the process of allocating all resources needed to run the
     //computation described by a Flow (in Akka Streams this will often involve starting up Actors)
     val sum: Future[Int] = counterGraph.run()
-    sum.foreach(c => println(s"Total tweets processed: $c"))
+    sum.foreach(c => println(s"Total Akka tweets processed: $c"))
     
     //EXAMPLE 3 (equivalent to EXAMPLE 2)
     val sum1: Future[Int] = tweets.map(t => 1).runWith(sumSink)
@@ -84,7 +90,7 @@ object QuickStart {
     //the mapConcat requires the supplied function to return a strict collection (f:Out=>immutable.Seq[T]),
     //whereas flatMap would have to operate on streams all the way through.
     val hashtags: Source[Hashtag, NotUsed] = tweets.mapConcat(_.hashtags.toList)
-    
+    hashtags.runForeach(println)
   }
   
 }
