@@ -59,7 +59,7 @@ class WebsocketExampleSpec extends WordSpec with Matchers {
     import system.dispatcher // for the future transformations
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ ⇒ system.shutdown()) // and shutdown when done
+      .onComplete(_ ⇒ system.terminate()) // and shutdown when done
   }
 
   "routing-example" in {
@@ -102,6 +102,6 @@ class WebsocketExampleSpec extends WordSpec with Matchers {
     import system.dispatcher // for the future transformations
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ ⇒ system.shutdown()) // and shutdown when done
+      .onComplete(_ ⇒ system.terminate()) // and shutdown when done
   }
 }

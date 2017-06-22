@@ -1,13 +1,13 @@
 package org.gwgs.http.server.lowlever
 
-import akka.actor.{ Actor, ActorRef, ActorSystem, Props }
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import HttpMethods._
+import akka.NotUsed
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Source, Sink, Flow}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 
-import akka.stream.stage.{ Context, PushStage }
 import scala.concurrent.Future
 
 object HttpServerLowLevelAPI {
@@ -86,7 +86,7 @@ object HttpServerLowLevelAPI {
   
   /*
    * Second type of failure is Source[IncomingConnection, _] signals a failure, after the server
-   * has successfully bound to a port and the source starts running and emiting new incoming
+   * has successfully bound to a port and the source starts running and emitting new incoming
    * connections.
    */
   def handleFailureBeforeConnection(implicit system: ActorSystem, materializer: ActorMaterializer): Unit = {
@@ -104,17 +104,9 @@ object HttpServerLowLevelAPI {
 
     import Http._
     val reactToTopLevelFailures = Flow[IncomingConnection]
-      .transform { () =>
-        new PushStage[IncomingConnection, IncomingConnection] {
-          override def onPush(elem: IncomingConnection, ctx: Context[IncomingConnection]) =
-            ctx.push(elem)
-
-          override def onUpstreamFailure(cause: Throwable, ctx: Context[IncomingConnection]) = {
-            failureMonitor ! cause
-            super.onUpstreamFailure(cause, ctx)
-          }
-        }
-      }
+      .watchTermination()((_, termination) => termination.failed.foreach {
+        cause => failureMonitor ! cause
+      })
 
     serverSource
       .via(reactToTopLevelFailures)
@@ -135,29 +127,26 @@ object HttpServerLowLevelAPI {
     val (host, port) = ("localhost", 8080)
     val serverSource = Http().bind(host, port)
 
-    val reactToConnectionFailure = Flow[HttpRequest]
-      .transform { () =>
-        new PushStage[HttpRequest, HttpRequest] {
-          override def onPush(elem: HttpRequest, ctx: Context[HttpRequest]) =
-            ctx.push(elem)
-
-          override def onUpstreamFailure(cause: Throwable, ctx: Context[HttpRequest]) = {
-            // handle the failure somehow
-            super.onUpstreamFailure(cause, ctx)
-          }
-        }
+    val reactToConnectionFailure: Flow[HttpRequest,HttpRequest,NotUsed] =
+      Flow[HttpRequest]
+      .recover[HttpRequest] {
+        case ex =>
+          // handle the failure somehow
+          throw ex
       }
 
-    val httpEcho = Flow[HttpRequest]
+    val httpEcho: Flow[HttpRequest,HttpResponse,NotUsed] =
+      Flow[HttpRequest]
       .via(reactToConnectionFailure)
-      .map { request =>
-        // simple text "echo" response:
-        HttpResponse(entity = HttpEntity(ContentTypes.`text/plain(UTF-8)`, request.entity.dataBytes))
+      .map {
+        request =>
+          // simple text "echo" response:
+          HttpResponse(entity = HttpEntity(ContentTypes.`text/plain(UTF-8)`, request.entity.dataBytes))
       }
 
     serverSource
       .runForeach { con =>
-        con.handleWith(httpEcho)
+        con handleWith httpEcho
       }
     
   }

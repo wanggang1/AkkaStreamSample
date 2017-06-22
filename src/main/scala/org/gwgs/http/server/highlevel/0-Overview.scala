@@ -22,22 +22,24 @@ object Overview {
       path("hello") {
         get {
           complete {
-            "Say hello to akka-http"
+            HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>")
           }
         }
       }
 
     val bindingFuture = Http().bindAndHandle(route, "localhost", 8080)
 
+    //The clean way is to perform this inside sys.addShutdownHook {}
+    /*
     println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
     StdIn.readLine() // let it run until user presses return
-
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
       .onComplete { _ ⇒
           println("system shutdown")
-          system.shutdown()
+          system.terminate()
       } // and shutdown when done
+    */
   }
   
   /*

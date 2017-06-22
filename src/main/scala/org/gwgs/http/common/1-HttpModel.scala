@@ -22,6 +22,9 @@ object HttpModel {
     val data = ByteString("abc")
     HttpRequest(POST, uri = "/receive", entity = data)
 
+    import akka.http.scaladsl.model.headers.`Raw-Request-URI`
+    HttpRequest(uri = "/ignored", headers = List(`Raw-Request-URI`("/a/b%2Bc")))
+
     // customize every detail of HTTP request
     import HttpProtocols._
     import MediaTypes._
@@ -76,25 +79,25 @@ object HttpModel {
   def customHeader = {
     import headers._
 
-    object ApiTokenHeader extends ModeledCustomHeaderCompanion[ApiTokenHeader] {
-      def renderInRequests = false
-      def renderInResponses = false
-      override val name = "apiKey"
-      override def parse(value: String) = Try(new ApiTokenHeader(value))
-    }
     final class ApiTokenHeader(token: String) extends ModeledCustomHeader[ApiTokenHeader] {
-      def renderInRequests = false
-      def renderInResponses = false
+      override def renderInRequests = false
+      override def renderInResponses = false
       override val companion = ApiTokenHeader
       override def value: String = token
+    }
+    object ApiTokenHeader extends ModeledCustomHeaderCompanion[ApiTokenHeader] {
+      override val name = "apiKey"
+      override def parse(value: String) = Try(new ApiTokenHeader(value))
     }
     
     val ApiTokenHeader(t1) = ApiTokenHeader("token")
     assert(t1 == "token")
 
+    /*
     val RawHeader(k2, v2) = ApiTokenHeader("token")
     assert(k2 == "apiKey")
     assert(v2 == "token")
+    */
 
     // will match, header keys are case insensitive
     val ApiTokenHeader(v3) = RawHeader("APIKEY", "token")

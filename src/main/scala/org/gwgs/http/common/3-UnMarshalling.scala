@@ -7,6 +7,8 @@ type FromResponseUnmarshaller[T] = Unmarshaller[HttpResponse, T]
 type FromRequestUnmarshaller[T] = Unmarshaller[HttpRequest, T]
 type FromStringUnmarshaller[T] = Unmarshaller[String, T]
 type FromStrictFormFieldUnmarshaller[T] = Unmarshaller[StrictForm.Field, T]
+
+Unmarshaller[A, B] is very similar to a function A => Future[B]
  */
 
 import akka.http.scaladsl.unmarshalling.Unmarshaller

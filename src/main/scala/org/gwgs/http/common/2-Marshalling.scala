@@ -4,52 +4,55 @@ package org.gwgs.http.common
  * Below are basic designs in akka http library
  */
 
-import akka.http.scaladsl.model._
-
 /*
-  import akka.http.scaladsl.marshalling.Marshaller
+
   import scala.collection.immutable.{ Seq => ImmutableSeq }
   
   type ToEntityMarshaller[T] = Marshaller[T, MessageEntity]
+  type ToByteStringMarshaller[T] = Marshaller[T, ByteString]
   type ToHeadersAndEntityMarshaller[T] = Marshaller[T, (ImmutableSeq[HttpHeader], MessageEntity)]
   type ToResponseMarshaller[T] = Marshaller[T, HttpResponse]
   type ToRequestMarshaller[T] = Marshaller[T, HttpRequest]
+
+  Marshaller[A, B] is similar to function A => Future[List[Marshalling[B]]]
  */
 
-
-/**
- * Describes one possible option for marshalling a given value.
- */
+/*
+//Describes one possible option for marshalling a given value.
 sealed trait Marshalling[+A] {
   def map[B](f: A ⇒ B): Marshalling[B]
+
+  //Converts this marshalling to an opaque marshalling, i.e. a marshalling result that
+  //does not take part in content type negotiation. The given charset is used if this
+  //instance is a `WithOpenCharset` marshalling.
+  def toOpaque(charset: HttpCharset): Marshalling[A]
 }
- 
+
 object Marshalling {
   
-  /**
-   * A Marshalling to a specific [[ContentType]].
-   */
-  final case class WithFixedContentType[A](contentType: ContentType,
-                                           marshal: () ⇒ A) extends Marshalling[A] {
+  //A Marshalling to a specific [[ContentType]].
+  final case class WithFixedContentType[A](
+    contentType: ContentType,
+    marshal: () ⇒ A) extends Marshalling[A] {
     def map[B](f: A ⇒ B): WithFixedContentType[B] = copy(marshal = () ⇒ f(marshal()))
+
+    def toOpaque(charset: HttpCharset): Marshalling[A] = Opaque(marshal)
   }
- 
-  /**
-   * A Marshalling to a specific [[MediaType]] with a flexible charset.
-   */
+
+  //A Marshalling to a specific [[akka.http.scaladsl.model.MediaType]] with a flexible charset.
   final case class WithOpenCharset[A](mediaType: MediaType.WithOpenCharset,
                                       marshal: HttpCharset ⇒ A) extends Marshalling[A] {
     def map[B](f: A ⇒ B): WithOpenCharset[B] = copy(marshal = cs ⇒ f(marshal(cs)))
+    def toOpaque(charset: HttpCharset): Marshalling[A] = Opaque(() ⇒ marshal(charset))
   }
- 
-  /**
-   * A Marshalling to an unknown MediaType and charset.
-   * Circumvents content negotiation.
-   */
+
+  //A Marshalling to an unknown MediaType and charset. Circumvents content negotiation.
   final case class Opaque[A](marshal: () ⇒ A) extends Marshalling[A] {
     def map[B](f: A ⇒ B): Opaque[B] = copy(marshal = () ⇒ f(marshal()))
+    def toOpaque(charset: HttpCharset): Marshalling[A] = this
   }
 }
+*/
 
 /*
  * In many places throughput Akka HTTP marshallers are used implicitly, e.g. when

@@ -1,10 +1,16 @@
 package org.gwgs.http.common
 
+
+/**
+  * For JSON Akka HTTP currently provides support for spray-json
+  * right out of the box through its akka-http-spray-json module.
+  *
+  * "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+  */
 object JsonSupport {
 
   import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
   import akka.http.scaladsl.server.Directives
-  
   import spray.json._
   
   // domain model
