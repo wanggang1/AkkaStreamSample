@@ -7,9 +7,9 @@ version := "1.0"
 scalaVersion := "2.11.11"
 
 libraryDependencies ++= {
-    val akkaVersion = "2.5.3"
-    val akkaHttpVersion = "10.0.8"
-    val akkaStreamVersion = "2.5.3"
+    val akkaVersion = "2.5.4"
+    val akkaHttpVersion = "10.0.10"
+    val akkaStreamVersion = "2.5.4"
 
     Seq(
       "com.typesafe.akka" %% "akka-stream" % akkaStreamVersion,
@@ -18,7 +18,7 @@ libraryDependencies ++= {
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaStreamVersion,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-      "org.scalatest" %% "scalatest" % "2.1.6" % "compile, test",
+      "org.scalatest" %% "scalatest" % "3.0.1" % "compile, test",
       "junit" % "junit" % "4.11" % "test",
       "com.novocode" % "junit-interface" % "0.10" % "test"
     )
